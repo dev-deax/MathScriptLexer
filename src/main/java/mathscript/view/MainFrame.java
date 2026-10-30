@@ -53,7 +53,7 @@ public class MainFrame extends JFrame {
     private final JTabbedPane editorTabs;
     private final JTable tablaTokens;
     private final JTable tablaSimbolos;
-    private final AFDGraphPanel grafoAFD;
+    private final AFDFormalGraphPanel grafoAFD;
     private final JTextArea consolaErrores;
     private final JLabel estadoLabel;
     private final JButton btnGuardar;
@@ -112,7 +112,7 @@ public class MainFrame extends JFrame {
         tablaSimbolos = new JTable(modeloSimbolos);
         Style.aplicarTabla(tablaSimbolos);
 
-        grafoAFD = new AFDGraphPanel();
+        grafoAFD = new AFDFormalGraphPanel();
 
         consolaErrores = new JTextArea(7, 20);
         consolaErrores.setEditable(false);
