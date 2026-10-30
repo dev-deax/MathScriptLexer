@@ -29,6 +29,7 @@ public class Lexer implements Analizador {
     private ArrayList<Token> tokens;
     private ArrayList<ErrorLexico> errores;
     private ArrayList<Simbolo> simbolos;
+    private ArrayList<PasoAFD> recorridoAFD;
 
     /**
      * Recorre el código fuente de izquierda a derecha y clasifica cada carácter.
@@ -89,7 +90,7 @@ public class Lexer implements Analizador {
         // El lexer no decide si la secuencia de tokens forma una instrucción
         // válida. Por ejemplo, reconoce 'if' como TOKEN_IF, pero comprobar qué
         // debe aparecer después correspondería a un futuro analizador sintáctico.
-        return new ResultadoAnalisis(tokens, errores, simbolos);
+        return new ResultadoAnalisis(tokens, errores, simbolos, recorridoAFD);
     }
 
     /** Reinicia el cursor y las colecciones para que cada análisis sea independiente. */
@@ -101,6 +102,7 @@ public class Lexer implements Analizador {
         tokens = new ArrayList<>();
         errores = new ArrayList<>();
         simbolos = new ArrayList<>();
+        recorridoAFD = new ArrayList<>();
     }
 
     /**
@@ -122,6 +124,7 @@ public class Lexer implements Analizador {
         int columnaInicio = columna;
 
         StringBuilder lexema = new StringBuilder();
+        Estado estadoAnterior = Estado.INICIO;
 
         // Mientras la transición IDENTIFICADOR -> IDENTIFICADOR sea válida,
         // se incorporan caracteres al mismo lexema. El primer carácter que no
@@ -129,8 +132,13 @@ public class Lexer implements Analizador {
         while (!fin() && estado == Estado.IDENTIFICADOR) {
             char c = actual();
             if (esContinuacionIdentificador(c)) {
+                registrarTransicion(estadoAnterior, Estado.IDENTIFICADOR,
+                        estadoAnterior == Estado.INICIO
+                                ? "letra o _" : "letra, dígito o _",
+                        posicion);
                 lexema.append(c);
                 avanzar();
+                estadoAnterior = Estado.IDENTIFICADOR;
             } else {
                 break;
             }
@@ -184,21 +192,30 @@ public class Lexer implements Analizador {
         int lineaInicio = linea;
         int columnaInicio = columna;
         Estado estado = Estado.ENTERO;
+        boolean primerDigito = true;
 
         // ENTERO --dígito--> ENTERO. Se consumen todos los dígitos consecutivos.
         while (!fin() && esDigito(actual())) {
+            registrarTransicion(primerDigito ? Estado.INICIO : Estado.ENTERO,
+                    Estado.ENTERO, "dígito", posicion);
             avanzar();
+            primerDigito = false;
         }
 
         // La parte decimal es opcional, pero si comienza debe estar completa.
         if (!fin() && actual() == '.') {
             // ENTERO --'.'--> PUNTO_DECIMAL.
+            registrarTransicion(Estado.ENTERO, Estado.PUNTO_DECIMAL,
+                    ".", posicion);
             estado = Estado.PUNTO_DECIMAL;
             avanzar();
 
             // PUNTO_DECIMAL necesita obligatoriamente un dígito para alcanzar
             // un estado de aceptación. '12.' termina en un estado no válido.
             if (fin() || !esDigito(actual())) {
+                registrarTransicion(Estado.PUNTO_DECIMAL, Estado.ERROR,
+                        fin() ? "fin de entrada" : "se esperaba dígito",
+                        posicion);
                 estado = Estado.ERROR;
                 String lexema = texto.substring(inicio, posicion);
                 agregarError(lexema, "Número decimal incompleto", lineaInicio, columnaInicio, inicio);
@@ -207,16 +224,23 @@ public class Lexer implements Analizador {
 
             // PUNTO_DECIMAL --dígito--> DECIMAL.
             estado = Estado.DECIMAL;
+            boolean primerDecimal = true;
 
             // DECIMAL --dígito--> DECIMAL.
             while (!fin() && esDigito(actual())) {
+                registrarTransicion(primerDecimal
+                        ? Estado.PUNTO_DECIMAL : Estado.DECIMAL,
+                        Estado.DECIMAL, "dígito", posicion);
                 avanzar();
+                primerDecimal = false;
             }
 
             // Recuperación solicitada para casos como 12.3.4.
             if (!fin() && actual() == '.') {
                 // Desde DECIMAL no existe otra transición válida con '.'. Se
                 // consume el bloque defectuoso para generar un único error.
+                registrarTransicion(Estado.DECIMAL, Estado.ERROR,
+                        "segundo punto", posicion);
                 estado = Estado.ERROR;
                 consumirNumeroMalFormado();
                 String lexema = texto.substring(inicio, posicion);
@@ -240,6 +264,8 @@ public class Lexer implements Analizador {
         while (!fin()) {
             char c = actual();
             if (esDigito(c) || c == '.') {
+                registrarTransicion(Estado.ERROR, Estado.ERROR,
+                        "dígito o .", posicion);
                 avanzar();
             } else {
                 break;
@@ -259,6 +285,7 @@ public class Lexer implements Analizador {
         Estado estado = Estado.CADENA;
 
         // INICIO --'"'--> CADENA. La comilla también forma parte del lexema.
+        registrarTransicion(Estado.INICIO, Estado.CADENA, "\"", posicion);
         avanzar(); // comilla de apertura
 
         while (!fin() && estado == Estado.CADENA) {
@@ -266,16 +293,28 @@ public class Lexer implements Analizador {
 
             if (c == '"') {
                 // CADENA --'"'--> CADENA_CERRADA: estado de aceptación.
+                registrarTransicion(Estado.CADENA, Estado.CADENA_CERRADA,
+                        "\"", posicion);
                 avanzar();
                 estado = Estado.CADENA_CERRADA;
             } else if (c == '\n' || c == '\r') {
                 // En este lenguaje una cadena no puede continuar en otra línea.
                 // El salto no se consume para que luego se trate como espacio.
+                registrarTransicion(Estado.CADENA, Estado.ERROR,
+                        "salto de línea", posicion);
                 estado = Estado.ERROR;
             } else {
                 // Cualquier otro carácter mantiene al AFD dentro de CADENA.
+                registrarTransicion(Estado.CADENA, Estado.CADENA,
+                        "carácter", posicion);
                 avanzar();
             }
+        }
+
+        if (fin() && estado == Estado.CADENA) {
+            registrarTransicion(Estado.CADENA, Estado.ERROR,
+                    "fin de entrada", posicion);
+            estado = Estado.ERROR;
         }
 
         String lexema = texto.substring(inicio, posicion);
@@ -299,6 +338,8 @@ public class Lexer implements Analizador {
         Estado estado = Estado.COMENTARIO;
 
         // INICIO --'/'--> operador potencial --'/'--> COMENTARIO.
+        registrarTransicion(Estado.INICIO, Estado.COMENTARIO,
+                "//", posicion);
         avanzar(); // /
         avanzar(); // /
 
@@ -308,6 +349,8 @@ public class Lexer implements Analizador {
             if (c == '\n' || c == '\r') {
                 break;
             }
+            registrarTransicion(Estado.COMENTARIO, Estado.COMENTARIO,
+                    "carácter", posicion);
             avanzar();
         }
 
@@ -327,6 +370,8 @@ public class Lexer implements Analizador {
 
         // Todos los operadores actuales tienen longitud uno. El cursor queda
         // inmediatamente preparado para reconocer el siguiente elemento.
+        registrarTransicion(Estado.INICIO, Estado.OPERADOR,
+                "operador", posicion);
         avanzar();
 
         if (estado == Estado.OPERADOR) {
@@ -342,6 +387,8 @@ public class Lexer implements Analizador {
         int lineaInicio = linea;
         int columnaInicio = columna;
         char c = actual();
+        registrarTransicion(Estado.INICIO, Estado.DELIMITADOR,
+                "delimitador", posicion);
         avanzar();
 
         if (estado == Estado.DELIMITADOR) {
@@ -363,6 +410,8 @@ public class Lexer implements Analizador {
         // Se agrupa toda la secuencia en un token ignorable en vez de producir
         // un token diferente por cada espacio o salto de línea.
         while (!fin() && esEspacio(actual())) {
+            registrarTransicion(Estado.INICIO, Estado.INICIO,
+                    "espacio", posicion);
             avanzar();
         }
 
@@ -380,6 +429,8 @@ public class Lexer implements Analizador {
         int lineaInicio = linea;
         int columnaInicio = columna;
         String lexema = String.valueOf(actual());
+        registrarTransicion(Estado.INICIO, Estado.ERROR,
+                "otro carácter", posicion);
         avanzar();
         agregarError(lexema, "Carácter no reconocido", lineaInicio, columnaInicio, inicio);
     }
@@ -404,6 +455,12 @@ public class Lexer implements Analizador {
             }
         }
         simbolos.add(new Simbolo(lexema, tipo, linea));
+    }
+
+    /** Registra una transición sin intervenir en la decisión léxica. */
+    private void registrarTransicion(Estado origen, Estado destino,
+            String condicion, int posicionInicial) {
+        recorridoAFD.add(new PasoAFD(origen, destino, condicion, posicionInicial));
     }
 
     private boolean fin() {
