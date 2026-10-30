@@ -47,8 +47,8 @@ Proyecto Maven para NetBeans que implementa un analizador léxico manual del len
 ## Grafo del AFD
 
 - La pestaña **Grafo AFD** se encuentra junto a **Tokens** y **Tabla de símbolos**.
-- El diagrama muestra siempre los estados, transiciones y condiciones del
-  autómata finito determinista utilizado por el Lexer.
+- El diagrama muestra los 27 estados formales `A` a `AA`, incluidas las rutas
+  de prefijo que distinguen `if`, `else`, `var` y `print` de identificadores.
 - Los estados de aceptación se representan con doble contorno y el estado
   `ERROR` se identifica mediante texto y color.
 - Al presionar **Analizar**, las líneas continuas y gruesas señalan los estados
@@ -57,6 +57,9 @@ Proyecto Maven para NetBeans que implementa un analizador léxico manual del len
   del grafo se conserva hasta realizar otro análisis formal.
 - El lienzo utiliza desplazamiento horizontal y vertical para mantener legibles
   las etiquetas sin depender del tamaño disponible en la ventana.
+- Las transiciones rojas representan errores léxicos reales. El fin normal de
+  un lexema se explica aparte: el controlador emite el token, vuelve a `A` y no
+  consume el carácter que inicia el siguiente lexema.
 
 ## Diferencia entre las tablas
 
@@ -70,6 +73,10 @@ Proyecto Maven para NetBeans que implementa un analizador léxico manual del len
 Mientras se escribe, el Lexer se usa únicamente para el resaltado visual. Las
 tablas, la consola y el recorrido resaltado del AFD se actualizan formalmente
 al presionar **Analizar**.
+
+El AFD reconoce un lexema a la vez. La repetición sobre todo el archivo, la
+regla de coincidencia más larga y el reinicio en `A` pertenecen al controlador
+del Lexer; no son transiciones hacia el estado sumidero.
 
 ## Nota académica
 
