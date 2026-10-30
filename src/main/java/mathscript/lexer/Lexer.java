@@ -157,6 +157,7 @@ public class Lexer implements Analizador {
 
     /** Devuelve el destino formal del trie de identificadores y reservadas. */
     private Estado siguienteEstadoIdentificador(Estado estado, char c) {
+        // Sólo las minúsculas exactas abren una rama reservada; 'If' es ID.
         if (estado == Estado.INICIO) {
             switch (c) {
                 case 'e': return Estado.PREFIJO_E;
@@ -176,10 +177,14 @@ public class Lexer implements Analizador {
         if (estado == Estado.PREFIJO_PRIN && c == 't') return Estado.PALABRA_PRINT;
         if (estado == Estado.PREFIJO_V && c == 'a') return Estado.PREFIJO_VA;
         if (estado == Estado.PREFIJO_VA && c == 'r') return Estado.PALABRA_VAR;
+        // Una vez que el prefijo difiere, nunca vuelve a ser reservada dentro
+        // del mismo lexema: 'ifx' y 'variable' terminan en el estado general I.
         return Estado.IDENTIFICADOR;
     }
 
     private String condicionIdentificador(Estado estado, char c) {
+        // Este texto sólo documenta el recorrido; el destino ya fue calculado
+        // por siguienteEstadoIdentificador y no depende de la etiqueta visual.
         if (estado == Estado.INICIO || estado == Estado.IDENTIFICADOR) {
             return esDigito(c) ? "dígito" : "letra o _";
         }

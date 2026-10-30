@@ -9,9 +9,13 @@ package mathscript.lexer;
  */
 public final class PasoAFD {
 
+    /** Estado antes de examinar el carácter o condición indicada. */
     private final Estado origen;
+    /** Estado alcanzado; el panel lo resalta junto con el origen. */
     private final Estado destino;
+    /** Explicación legible de la entrada que provocó el paso. */
     private final String condicion;
+    /** Índice absoluto, desde cero, para relacionar el paso con el editor. */
     private final int posicionInicial;
 
     public PasoAFD(Estado origen, Estado destino,

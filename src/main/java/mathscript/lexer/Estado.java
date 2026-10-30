@@ -37,8 +37,11 @@ public enum Estado {
     PREFIJO_PRIN("Z", "prin · ID", true),
     PALABRA_PRINT("AA", "print · PRINT", true);
 
+    /** Identificador corto utilizado para comparar el grafo con el PDF. */
     private final String codigo;
+    /** Texto visible; no interviene en la clasificación de los tokens. */
     private final String etiqueta;
+    /** Un lexema puede finalizar aquí; no significa que toda la fuente sea válida. */
     private final boolean aceptacion;
 
     Estado(String codigo, String etiqueta, boolean aceptacion) {
