@@ -13,11 +13,14 @@ import mathscript.model.Token;
 public class LexerPruebaManual {
 
     public static void main(String[] args) {
+        verificar(Estado.values().length == 27,
+                "El AFD formal debe conservar exactamente 27 estados");
         probarCodigoValido();
         probarErrores();
         probarPrioridadReservadas();
         probarTablaSimbolosSinDuplicados();
         probarRecorridoIdentificadores();
+        probarRecorridoPalabrasReservadas();
         probarRecorridoNumeros();
         probarRecorridoCadenaYComentario();
         probarRecorridoErrores();
@@ -82,10 +85,28 @@ public class LexerPruebaManual {
     private static void probarRecorridoIdentificadores() {
         ResultadoAnalisis r = new Lexer().analizar("if dato");
 
+        verificar(contieneTransicion(r, Estado.INICIO, Estado.PREFIJO_I),
+                "if debe comenzar por el prefijo i");
+        verificar(contieneTransicion(r, Estado.PREFIJO_I, Estado.PALABRA_IF),
+                "if debe alcanzar su estado reservado");
         verificar(contieneTransicion(r, Estado.INICIO, Estado.IDENTIFICADOR),
-                "Un identificador debe salir de INICIO");
+                "dato debe entrar al identificador general");
         verificar(contieneTransicion(r, Estado.IDENTIFICADOR, Estado.IDENTIFICADOR),
                 "Los caracteres restantes deben permanecer en IDENTIFICADOR");
+    }
+
+    private static void probarRecorridoPalabrasReservadas() {
+        ResultadoAnalisis r = new Lexer().analizar("else print var ifx");
+        verificar(contieneTransicion(r, Estado.PREFIJO_E, Estado.PREFIJO_EL),
+                "else debe recorrer e -> el");
+        verificar(contieneTransicion(r, Estado.PREFIJO_ELS, Estado.PALABRA_ELSE),
+                "else debe alcanzar su estado reservado");
+        verificar(contieneTransicion(r, Estado.PREFIJO_PRIN, Estado.PALABRA_PRINT),
+                "print debe alcanzar su estado reservado");
+        verificar(contieneTransicion(r, Estado.PREFIJO_VA, Estado.PALABRA_VAR),
+                "var debe alcanzar su estado reservado");
+        verificar(contieneTransicion(r, Estado.PALABRA_IF, Estado.IDENTIFICADOR),
+                "ifx debe abandonar la reservada y terminar como ID");
     }
 
     private static void probarRecorridoNumeros() {
@@ -112,10 +133,14 @@ public class LexerPruebaManual {
                 "El contenido debe permanecer en CADENA");
         verificar(contieneTransicion(r, Estado.CADENA, Estado.CADENA_CERRADA),
                 "La comilla final debe cerrar la cadena");
-        verificar(contieneTransicion(r, Estado.INICIO, Estado.COMENTARIO),
-                "Las dos barras deben iniciar COMENTARIO");
+        verificar(contieneTransicion(r, Estado.INICIO, Estado.BARRA),
+                "La primera barra debe llegar al operador potencial");
+        verificar(contieneTransicion(r, Estado.BARRA, Estado.COMENTARIO),
+                "La segunda barra debe iniciar COMENTARIO");
         verificar(contieneTransicion(r, Estado.COMENTARIO, Estado.COMENTARIO),
                 "El contenido debe permanecer en COMENTARIO");
+        verificar(contieneTransicion(r, Estado.INICIO, Estado.ESPACIO),
+                "El espacio debe entrar al estado formal B");
     }
 
     private static void probarRecorridoErrores() {

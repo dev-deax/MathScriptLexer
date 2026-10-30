@@ -114,9 +114,6 @@ public class Lexer implements Analizador {
      * {@code variable} continúa siendo un identificador.</p>
      */
     private void analizarIdentificador() {
-        // La condición de entrada de este método ya garantizó una letra o '_'.
-        Estado estado = Estado.IDENTIFICADOR;
-
         // Se guarda el punto de partida antes de mover el cursor. Es la posición
         // que posteriormente usarán tanto la tabla como el resaltado visual.
         int inicio = posicion;
@@ -124,21 +121,19 @@ public class Lexer implements Analizador {
         int columnaInicio = columna;
 
         StringBuilder lexema = new StringBuilder();
-        Estado estadoAnterior = Estado.INICIO;
+        Estado estado = Estado.INICIO;
 
-        // Mientras la transición IDENTIFICADOR -> IDENTIFICADOR sea válida,
-        // se incorporan caracteres al mismo lexema. El primer carácter que no
-        // cumple la regla queda pendiente para la siguiente vuelta principal.
-        while (!fin() && estado == Estado.IDENTIFICADOR) {
+        // Cada carácter recorre el trie de palabras reservadas. Si el prefijo
+        // deja de coincidir, el AFD cae en IDENTIFICADOR y permanece allí.
+        while (!fin()) {
             char c = actual();
             if (esContinuacionIdentificador(c)) {
-                registrarTransicion(estadoAnterior, Estado.IDENTIFICADOR,
-                        estadoAnterior == Estado.INICIO
-                                ? "letra o _" : "letra, dígito o _",
-                        posicion);
+                Estado siguiente = siguienteEstadoIdentificador(estado, c);
+                registrarTransicion(estado, siguiente,
+                        condicionIdentificador(estado, c), posicion);
                 lexema.append(c);
                 avanzar();
-                estadoAnterior = Estado.IDENTIFICADOR;
+                estado = siguiente;
             } else {
                 break;
             }
@@ -158,6 +153,39 @@ public class Lexer implements Analizador {
         } else {
             agregarSimboloSiNoExiste(palabra, "PALABRA_RESERVADA", lineaInicio);
         }
+    }
+
+    /** Devuelve el destino formal del trie de identificadores y reservadas. */
+    private Estado siguienteEstadoIdentificador(Estado estado, char c) {
+        if (estado == Estado.INICIO) {
+            switch (c) {
+                case 'e': return Estado.PREFIJO_E;
+                case 'i': return Estado.PREFIJO_I;
+                case 'p': return Estado.PREFIJO_P;
+                case 'v': return Estado.PREFIJO_V;
+                default: return Estado.IDENTIFICADOR;
+            }
+        }
+        if (estado == Estado.PREFIJO_E && c == 'l') return Estado.PREFIJO_EL;
+        if (estado == Estado.PREFIJO_EL && c == 's') return Estado.PREFIJO_ELS;
+        if (estado == Estado.PREFIJO_ELS && c == 'e') return Estado.PALABRA_ELSE;
+        if (estado == Estado.PREFIJO_I && c == 'f') return Estado.PALABRA_IF;
+        if (estado == Estado.PREFIJO_P && c == 'r') return Estado.PREFIJO_PR;
+        if (estado == Estado.PREFIJO_PR && c == 'i') return Estado.PREFIJO_PRI;
+        if (estado == Estado.PREFIJO_PRI && c == 'n') return Estado.PREFIJO_PRIN;
+        if (estado == Estado.PREFIJO_PRIN && c == 't') return Estado.PALABRA_PRINT;
+        if (estado == Estado.PREFIJO_V && c == 'a') return Estado.PREFIJO_VA;
+        if (estado == Estado.PREFIJO_VA && c == 'r') return Estado.PALABRA_VAR;
+        return Estado.IDENTIFICADOR;
+    }
+
+    private String condicionIdentificador(Estado estado, char c) {
+        if (estado == Estado.INICIO || estado == Estado.IDENTIFICADOR) {
+            return esDigito(c) ? "dígito" : "letra o _";
+        }
+        Estado siguiente = siguienteEstadoIdentificador(estado, c);
+        return siguiente == Estado.IDENTIFICADOR
+                ? "otra letra, dígito o _" : String.valueOf(c);
     }
 
     /** Traduce las palabras reservadas del lenguaje a su tipo de token. */
@@ -337,11 +365,12 @@ public class Lexer implements Analizador {
         int columnaInicio = columna;
         Estado estado = Estado.COMENTARIO;
 
-        // INICIO --'/'--> operador potencial --'/'--> COMENTARIO.
-        registrarTransicion(Estado.INICIO, Estado.COMENTARIO,
-                "//", posicion);
-        avanzar(); // /
-        avanzar(); // /
+        // Se registran las dos transiciones formales: la primera barra todavía
+        // es un operador aceptable; la segunda confirma el comentario.
+        registrarTransicion(Estado.INICIO, Estado.BARRA, "/", posicion);
+        avanzar();
+        registrarTransicion(Estado.BARRA, Estado.COMENTARIO, "/", posicion);
+        avanzar();
 
         // Todo carácter pertenece al comentario hasta encontrar fin de línea.
         while (!fin() && estado == Estado.COMENTARIO) {
@@ -362,22 +391,20 @@ public class Lexer implements Analizador {
 
     /** Reconoce los operadores de un carácter admitidos por MathScript. */
     private void analizarOperador() {
-        Estado estado = Estado.OPERADOR;
         int inicio = posicion;
         int lineaInicio = linea;
         int columnaInicio = columna;
         char c = actual();
+        Estado estado = c == '/' ? Estado.BARRA : Estado.OPERADOR;
 
         // Todos los operadores actuales tienen longitud uno. El cursor queda
         // inmediatamente preparado para reconocer el siguiente elemento.
-        registrarTransicion(Estado.INICIO, Estado.OPERADOR,
-                "operador", posicion);
+        registrarTransicion(Estado.INICIO, estado,
+                c == '/' ? "/" : "operador", posicion);
         avanzar();
 
-        if (estado == Estado.OPERADOR) {
-            agregarToken(String.valueOf(c), TipoToken.TOKEN_OP,
-                    lineaInicio, columnaInicio, inicio);
-        }
+        agregarToken(String.valueOf(c), TipoToken.TOKEN_OP,
+                lineaInicio, columnaInicio, inicio);
     }
 
     /** Reconoce paréntesis, llaves y punto y coma como delimitadores. */
@@ -409,9 +436,11 @@ public class Lexer implements Analizador {
 
         // Se agrupa toda la secuencia en un token ignorable en vez de producir
         // un token diferente por cada espacio o salto de línea.
+        Estado estado = Estado.INICIO;
         while (!fin() && esEspacio(actual())) {
-            registrarTransicion(Estado.INICIO, Estado.INICIO,
-                    "espacio", posicion);
+            registrarTransicion(estado, Estado.ESPACIO,
+                    "espacio, tab, CR o LF", posicion);
+            estado = Estado.ESPACIO;
             avanzar();
         }
 
