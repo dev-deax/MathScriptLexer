@@ -30,9 +30,9 @@ import mathscript.util.Style;
  */
 public class AFDGraphPanel extends javax.swing.JPanel {
 
-    private static final int ANCHO_LIENZO = 1140;
-    private static final int ALTO_LIENZO = 650;
-    private static final int ANCHO_NODO = 142;
+    private static final int ANCHO_LIENZO = 1360;
+    private static final int ALTO_LIENZO = 850;
+    private static final int ANCHO_NODO = 156;
     private static final int ALTO_NODO = 46;
 
     private static final BasicStroke TRAZO_NORMAL = new BasicStroke(
@@ -84,53 +84,59 @@ public class AFDGraphPanel extends javax.swing.JPanel {
     }
 
     private void crearNodos() {
-        agregarNodo(Estado.INICIO, 75, 300, false);
-        agregarNodo(Estado.IDENTIFICADOR, 300, 65, true);
+        agregarNodo(Estado.INICIO, 70, 380, false);
+        agregarNodo(Estado.IDENTIFICADOR, 340, 125, true);
 
-        agregarNodo(Estado.ENTERO, 300, 185, true);
-        agregarNodo(Estado.PUNTO_DECIMAL, 515, 185, false);
-        agregarNodo(Estado.DECIMAL, 730, 185, true);
+        agregarNodo(Estado.ENTERO, 340, 300, true);
+        agregarNodo(Estado.PUNTO_DECIMAL, 590, 300, false);
+        agregarNodo(Estado.DECIMAL, 840, 300, true);
 
-        agregarNodo(Estado.CADENA, 300, 330, false);
-        agregarNodo(Estado.CADENA_CERRADA, 535, 330, true);
+        agregarNodo(Estado.CADENA, 340, 480, false);
+        agregarNodo(Estado.CADENA_CERRADA, 590, 480, true);
 
-        agregarNodo(Estado.OPERADOR, 300, 500, true);
-        agregarNodo(Estado.DELIMITADOR, 515, 500, true);
-        agregarNodo(Estado.COMENTARIO, 730, 500, true);
+        agregarNodo(Estado.OPERADOR, 340, 665, true);
+        agregarNodo(Estado.DELIMITADOR, 590, 665, true);
+        agregarNodo(Estado.COMENTARIO, 840, 665, true);
 
-        agregarNodo(Estado.ERROR, 940, 330, false);
+        agregarNodo(Estado.ERROR, 1110, 480, false);
     }
 
     private void crearAristas() {
         agregarArista(Estado.INICIO, Estado.INICIO, "espacio", 0, 0, true);
-        agregarArista(Estado.INICIO, Estado.IDENTIFICADOR, "letra | _", -45, -20, false);
+        agregarArista(Estado.INICIO, Estado.IDENTIFICADOR, "letra | _", -38, -28, false);
         agregarArista(Estado.IDENTIFICADOR, Estado.IDENTIFICADOR,
                 "letra | dígito | _", 0, 0, true);
 
-        agregarArista(Estado.INICIO, Estado.ENTERO, "dígito", -12, -6, false);
+        agregarArista(Estado.INICIO, Estado.ENTERO, "dígito", -10, -12, false);
         agregarArista(Estado.ENTERO, Estado.ENTERO, "dígito", 0, 0, true);
         agregarArista(Estado.ENTERO, Estado.PUNTO_DECIMAL, ".", 0, 0, false);
         agregarArista(Estado.PUNTO_DECIMAL, Estado.DECIMAL, "dígito", 0, 0, false);
         agregarArista(Estado.DECIMAL, Estado.DECIMAL, "dígito", 0, 0, true);
 
-        agregarArista(Estado.INICIO, Estado.CADENA, "\"", 0, 0, false);
+        agregarArista(Estado.INICIO, Estado.CADENA, "\"", -5, 10, false);
         agregarArista(Estado.CADENA, Estado.CADENA, "otro carácter", 0, 0, true);
         agregarArista(Estado.CADENA, Estado.CADENA_CERRADA, "\"", 0, 0, false);
 
-        agregarArista(Estado.INICIO, Estado.OPERADOR, "+ - * / =", -20, 16, false);
-        agregarArista(Estado.INICIO, Estado.DELIMITADOR, "( ) { } ;", 5, 55, false);
-        agregarArista(Estado.INICIO, Estado.COMENTARIO, "//", 25, 105, false);
+        agregarRuta(Estado.INICIO, Estado.OPERADOR, "+ - * / =", 278, 615,
+                252, 602, 300, 688);
+        agregarRuta(Estado.INICIO, Estado.DELIMITADOR, "( ) { } ;", 420, 756,
+                220, 640, 220, 770, 555, 770);
+        agregarRuta(Estado.INICIO, Estado.COMENTARIO, "//", 650, 809,
+                192, 658, 192, 820, 805, 820);
         agregarArista(Estado.COMENTARIO, Estado.COMENTARIO,
                 "hasta fin de línea", 0, 0, true);
 
-        agregarArista(Estado.PUNTO_DECIMAL, Estado.ERROR,
-                "sin dígito", 40, -95, false);
+        agregarRuta(Estado.PUNTO_DECIMAL, Estado.ERROR,
+                "sin dígito", 855, 220,
+                668, 245, 1040, 245, 1160, 425);
         agregarArista(Estado.DECIMAL, Estado.ERROR,
-                "segundo .", 15, -38, false);
-        agregarArista(Estado.CADENA, Estado.ERROR,
-                "salto | fin", 120, 82, false);
-        agregarArista(Estado.INICIO, Estado.ERROR,
-                "otro carácter", 80, -175, false);
+                "segundo .", 18, -18, false);
+        agregarRuta(Estado.CADENA, Estado.ERROR,
+                "salto de línea | fin", 850, 558,
+                425, 570, 1035, 570);
+        agregarRuta(Estado.INICIO, Estado.ERROR,
+                "otro carácter", 900, 95,
+                205, 265, 1035, 85, 1188, 420);
         agregarArista(Estado.ERROR, Estado.ERROR, "dígito | .", 0, 0, true);
     }
 
@@ -141,7 +147,22 @@ public class AFDGraphPanel extends javax.swing.JPanel {
     private void agregarArista(Estado origen, Estado destino, String etiqueta,
             int curvaX, int curvaY, boolean autoTransicion) {
         aristas.add(new Arista(origen, destino, etiqueta,
-                curvaX, curvaY, autoTransicion));
+                curvaX, curvaY, autoTransicion, null,
+                Double.NaN, Double.NaN));
+    }
+
+    /**
+     * Crea una ruta poligonal por corredores reservados. Las coordenadas se
+     * reciben como pares x,y y evitan que las aristas largas crucen otros nodos.
+     */
+    private void agregarRuta(Estado origen, Estado destino, String etiqueta,
+            double etiquetaX, double etiquetaY, double... coordenadas) {
+        Point2D[] ruta = new Point2D[coordenadas.length / 2];
+        for (int i = 0; i < coordenadas.length; i += 2) {
+            ruta[i / 2] = new Point2D.Double(coordenadas[i], coordenadas[i + 1]);
+        }
+        aristas.add(new Arista(origen, destino, etiqueta,
+                0, 0, false, ruta, etiquetaX, etiquetaY));
     }
 
     @Override
@@ -178,7 +199,7 @@ public class AFDGraphPanel extends javax.swing.JPanel {
         g2.drawString("Las líneas continuas y gruesas pertenecen al último análisis formal.",
                 24, 48);
 
-        int x = 700;
+        int x = 880;
         g2.setStroke(TRAZO_RECORRIDO);
         g2.setColor(Style.COLOR_PRIMARIO);
         g2.drawLine(x, 24, x + 38, 24);
@@ -228,6 +249,11 @@ public class AFDGraphPanel extends javax.swing.JPanel {
             return;
         }
 
+        if (arista.ruta != null) {
+            dibujarRuta(g2, origen, destino, arista, visitada);
+            return;
+        }
+
         double controlX = (origen.centroX() + destino.centroX()) / 2.0 + arista.curvaX;
         double controlY = (origen.centroY() + destino.centroY()) / 2.0 + arista.curvaY;
         Point2D inicio = puntoBorde(origen, controlX, controlY);
@@ -242,6 +268,29 @@ public class AFDGraphPanel extends javax.swing.JPanel {
         double etiquetaX = 0.25 * inicio.getX() + 0.5 * controlX + 0.25 * fin.getX();
         double etiquetaY = 0.25 * inicio.getY() + 0.5 * controlY + 0.25 * fin.getY();
         dibujarEtiqueta(g2, arista.etiqueta, etiquetaX, etiquetaY - 7, visitada);
+    }
+
+    private void dibujarRuta(Graphics2D g2, Nodo origen, Nodo destino,
+            Arista arista, boolean visitada) {
+        Point2D primerPunto = arista.ruta[0];
+        Point2D ultimoPunto = arista.ruta[arista.ruta.length - 1];
+        Point2D inicio = puntoBorde(origen,
+                primerPunto.getX(), primerPunto.getY());
+        Point2D fin = puntoBorde(destino,
+                ultimoPunto.getX(), ultimoPunto.getY());
+
+        Path2D camino = new Path2D.Double();
+        camino.moveTo(inicio.getX(), inicio.getY());
+        for (Point2D punto : arista.ruta) {
+            camino.lineTo(punto.getX(), punto.getY());
+        }
+        camino.lineTo(fin.getX(), fin.getY());
+        g2.draw(camino);
+
+        dibujarPunta(g2, ultimoPunto.getX(), ultimoPunto.getY(),
+                fin.getX(), fin.getY());
+        dibujarEtiqueta(g2, arista.etiqueta,
+                arista.etiquetaX, arista.etiquetaY, visitada);
     }
 
     private void dibujarAutoTransicion(Graphics2D g2, Nodo nodo,
@@ -390,15 +439,22 @@ public class AFDGraphPanel extends javax.swing.JPanel {
         private final int curvaX;
         private final int curvaY;
         private final boolean autoTransicion;
+        private final Point2D[] ruta;
+        private final double etiquetaX;
+        private final double etiquetaY;
 
         private Arista(Estado origen, Estado destino, String etiqueta,
-                int curvaX, int curvaY, boolean autoTransicion) {
+                int curvaX, int curvaY, boolean autoTransicion,
+                Point2D[] ruta, double etiquetaX, double etiquetaY) {
             this.origen = origen;
             this.destino = destino;
             this.etiqueta = etiqueta;
             this.curvaX = curvaX;
             this.curvaY = curvaY;
             this.autoTransicion = autoTransicion;
+            this.ruta = ruta;
+            this.etiquetaX = etiquetaX;
+            this.etiquetaY = etiquetaY;
         }
     }
 }
