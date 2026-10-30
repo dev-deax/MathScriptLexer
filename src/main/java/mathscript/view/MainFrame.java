@@ -53,6 +53,7 @@ public class MainFrame extends JFrame {
     private final JTabbedPane editorTabs;
     private final JTable tablaTokens;
     private final JTable tablaSimbolos;
+    private final AFDFormalGraphPanel grafoAFD;
     private final JTextArea consolaErrores;
     private final JLabel estadoLabel;
     private final JButton btnGuardar;
@@ -110,6 +111,8 @@ public class MainFrame extends JFrame {
         };
         tablaSimbolos = new JTable(modeloSimbolos);
         Style.aplicarTabla(tablaSimbolos);
+
+        grafoAFD = new AFDFormalGraphPanel();
 
         consolaErrores = new JTextArea(7, 20);
         consolaErrores.setEditable(false);
@@ -219,13 +222,18 @@ public class MainFrame extends JFrame {
 
         JScrollPane scrollTokens = new JScrollPane(tablaTokens);
         JScrollPane scrollSimbolos = new JScrollPane(tablaSimbolos);
+        JScrollPane scrollGrafo = new JScrollPane(grafoAFD);
         Style.aplicarScrollPane(scrollTokens, Style.COLOR_PANEL);
         Style.aplicarScrollPane(scrollSimbolos, Style.COLOR_PANEL);
+        Style.aplicarScrollPane(scrollGrafo, Style.COLOR_PANEL);
+        scrollGrafo.getHorizontalScrollBar().setUnitIncrement(18);
+        scrollGrafo.getVerticalScrollBar().setUnitIncrement(18);
 
         JTabbedPane tabsResultados = new JTabbedPane();
         Style.aplicarTabs(tabsResultados);
         tabsResultados.addTab("Tokens", scrollTokens);
         tabsResultados.addTab("Tabla de símbolos", scrollSimbolos);
+        tabsResultados.addTab("Grafo AFD", scrollGrafo);
 
         JPanel resultados = new JPanel(new BorderLayout(0, 7));
         resultados.setBackground(Style.COLOR_FONDO);
@@ -414,6 +422,7 @@ public class MainFrame extends JFrame {
         llenarSimbolos(resultado);
         llenarErrores(resultado);
         aplicarEstilos(resultado, true);
+        grafoAFD.actualizarRecorrido(resultado.getRecorridoAFD());
 
         // El total mostrado excluye elementos Skip, igual que la tabla visible.
         int tokensVisibles = 0;
@@ -579,6 +588,7 @@ public class MainFrame extends JFrame {
         modeloTokens.setRowCount(0);
         modeloSimbolos.setRowCount(0);
         consolaErrores.setText("");
+        grafoAFD.limpiarRecorrido();
     }
 
     private void actualizarIdentidadDocumento() {
