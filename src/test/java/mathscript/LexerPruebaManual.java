@@ -1,6 +1,8 @@
 package mathscript;
 
 import mathscript.lexer.Lexer;
+import mathscript.lexer.Estado;
+import mathscript.lexer.PasoAFD;
 import mathscript.model.ResultadoAnalisis;
 import mathscript.model.TipoToken;
 import mathscript.model.Token;
@@ -15,6 +17,10 @@ public class LexerPruebaManual {
         probarErrores();
         probarPrioridadReservadas();
         probarTablaSimbolosSinDuplicados();
+        probarRecorridoIdentificadores();
+        probarRecorridoNumeros();
+        probarRecorridoCadenaYComentario();
+        probarRecorridoErrores();
         System.out.println("Todas las pruebas manuales terminaron correctamente.");
     }
 
@@ -73,9 +79,73 @@ public class LexerPruebaManual {
                 "Debe registrar print como palabra reservada");
     }
 
+    private static void probarRecorridoIdentificadores() {
+        ResultadoAnalisis r = new Lexer().analizar("if dato");
+
+        verificar(contieneTransicion(r, Estado.INICIO, Estado.IDENTIFICADOR),
+                "Un identificador debe salir de INICIO");
+        verificar(contieneTransicion(r, Estado.IDENTIFICADOR, Estado.IDENTIFICADOR),
+                "Los caracteres restantes deben permanecer en IDENTIFICADOR");
+    }
+
+    private static void probarRecorridoNumeros() {
+        ResultadoAnalisis r = new Lexer().analizar("7 12.34");
+
+        verificar(contieneTransicion(r, Estado.INICIO, Estado.ENTERO),
+                "Un número debe comenzar en ENTERO");
+        verificar(contieneTransicion(r, Estado.ENTERO, Estado.ENTERO),
+                "Los enteros de varios dígitos deben permanecer en ENTERO");
+        verificar(contieneTransicion(r, Estado.ENTERO, Estado.PUNTO_DECIMAL),
+                "El punto debe abrir la parte decimal");
+        verificar(contieneTransicion(r, Estado.PUNTO_DECIMAL, Estado.DECIMAL),
+                "El primer dígito decimal debe alcanzar DECIMAL");
+        verificar(contieneTransicion(r, Estado.DECIMAL, Estado.DECIMAL),
+                "Los dígitos decimales restantes deben permanecer en DECIMAL");
+    }
+
+    private static void probarRecorridoCadenaYComentario() {
+        ResultadoAnalisis r = new Lexer().analizar("\"ok\" // nota");
+
+        verificar(contieneTransicion(r, Estado.INICIO, Estado.CADENA),
+                "La comilla de apertura debe iniciar CADENA");
+        verificar(contieneTransicion(r, Estado.CADENA, Estado.CADENA),
+                "El contenido debe permanecer en CADENA");
+        verificar(contieneTransicion(r, Estado.CADENA, Estado.CADENA_CERRADA),
+                "La comilla final debe cerrar la cadena");
+        verificar(contieneTransicion(r, Estado.INICIO, Estado.COMENTARIO),
+                "Las dos barras deben iniciar COMENTARIO");
+        verificar(contieneTransicion(r, Estado.COMENTARIO, Estado.COMENTARIO),
+                "El contenido debe permanecer en COMENTARIO");
+    }
+
+    private static void probarRecorridoErrores() {
+        ResultadoAnalisis r = new Lexer().analizar("@ 12. 12.3.4 \"sin cerrar");
+
+        verificar(r.getErrores().size() == 4,
+                "Se esperaban cuatro clases de error en el recorrido");
+        verificar(contieneTransicion(r, Estado.INICIO, Estado.ERROR),
+                "Un carácter desconocido debe ir de INICIO a ERROR");
+        verificar(contieneTransicion(r, Estado.PUNTO_DECIMAL, Estado.ERROR),
+                "Un decimal incompleto debe ir de PUNTO_DECIMAL a ERROR");
+        verificar(contieneTransicion(r, Estado.DECIMAL, Estado.ERROR),
+                "Un segundo punto debe ir de DECIMAL a ERROR");
+        verificar(contieneTransicion(r, Estado.CADENA, Estado.ERROR),
+                "Una cadena sin cerrar debe ir de CADENA a ERROR");
+    }
+
     private static boolean contiene(ResultadoAnalisis r, TipoToken tipo) {
         for (Token token : r.getTokens()) {
             if (token.getTipo() == tipo) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean contieneTransicion(ResultadoAnalisis r,
+            Estado origen, Estado destino) {
+        for (PasoAFD paso : r.getRecorridoAFD()) {
+            if (paso.getOrigen() == origen && paso.getDestino() == destino) {
                 return true;
             }
         }
